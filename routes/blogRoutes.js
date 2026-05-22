@@ -5,9 +5,16 @@ const path = require('path');
 const fs = require('fs');
 const Blog = require('../models/Blog');
 
-const uploadDirectory = path.join(__dirname, '../public/uploads');
-if (!fs.existsSync(uploadDirectory)) {
-  fs.mkdirSync(uploadDirectory, { recursive: true });
+const uploadDirectory = process.env.VERCEL
+  ? '/tmp/uploads'
+  : path.join(__dirname, '../public/uploads');
+
+try {
+  if (!fs.existsSync(uploadDirectory)) {
+    fs.mkdirSync(uploadDirectory, { recursive: true });
+  }
+} catch (e) {
+  console.warn('Could not create upload directory:', e.message);
 }
 
 const storage = multer.diskStorage({
