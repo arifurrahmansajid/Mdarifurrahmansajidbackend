@@ -30,6 +30,11 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+// Health check / root route
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Portfolio Backend API is running 🚀', version: '1.0.0' });
+});
+
 // Routes
 app.use('/api/user', adminRoutes);
 app.use('/api/message', emailRoutes);
