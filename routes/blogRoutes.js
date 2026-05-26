@@ -5,28 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const Blog = require('../models/Blog');
 
-const uploadDirectory = process.env.VERCEL
-  ? '/tmp/uploads'
-  : path.join(__dirname, '../public/uploads');
-
-try {
-  if (!fs.existsSync(uploadDirectory)) {
-    fs.mkdirSync(uploadDirectory, { recursive: true });
-  }
-} catch (e) {
-  console.warn('Could not create upload directory:', e.message);
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDirectory);
-  },
-  filename: function (req, file, cb) {
-    const filename = `${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
-    cb(null, filename);
-  }
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 const parseJsonArray = (value) => {
@@ -108,7 +87,11 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: "Title and content are required" });
     }
 
-    const thumbnail = req.file ? `/uploads/${req.file.filename}` : undefined;
+    let thumbnail = undefined;
+    if (req.file) {
+      const b64 = req.file.buffer.toString('base64');
+      thumbnail = `data:${req.file.mimetype};base64,${b64}`;
+    }
     const categories = parseRepeatedOrJsonArray(req.body, ["categories[]", "categories"]);
     const tags = parseRepeatedOrJsonArray(req.body, ["tags[]", "tags"]);
     const seoKeywords = parseRepeatedOrJsonArray(req.body, ["meta.seoKeywords[]", "meta.seoKeywords", "seoKeywords[]", "seoKeywords"]);
@@ -161,11 +144,8 @@ router.put('/:id', upload.single('file'), async (req, res) => {
     let thumbnail = blog.thumbnail;
 
     if (req.file) {
-      if (blog.thumbnail) {
-        const oldPath = path.join(__dirname, '../public', blog.thumbnail);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      thumbnail = `/uploads/${req.file.filename}`;
+      const b64 = req.file.buffer.toString('base64');
+      thumbnail = `data:${req.file.mimetype};base64,${b64}`;
     }
 
     const categories = parseRepeatedOrJsonArray(req.body, ["categories[]", "categories"]);
@@ -213,10 +193,7 @@ router.delete('/:id', async (req, res) => {
     const blog = await Blog.findById(id);
     if (!blog) return res.status(404).json({ error: "Blog not found" });
 
-    if (blog.thumbnail) {
-      const oldPath = path.join(__dirname, '../public', blog.thumbnail);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
+    // No local file to delete since we use base64
 
     await Blog.findByIdAndDelete(id);
     res.json({ success: true, message: "Blog deleted successfully" });
